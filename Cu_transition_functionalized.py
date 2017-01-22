@@ -48,3 +48,41 @@ def raw_data_cleanup(filename):
     else:
         print("{} does not exist in directory. Function was not complete.".format(filename))
         return
+
+
+def TPM_counts(dataframe,
+               gene_start,
+               gene_stop,
+               columns):
+    """
+    TPM_counts(dataframe, gene_start, gene_stop, columns):
+
+    Parameters
+    ----------
+    daraframe = dataframe object variable
+    gene_start = string with column name containing gene start coordinate
+    gene_stop = string with column name containing gene stop coordinate
+    columns = list of strings of column names to be converted to TPM
+    """
+
+    # create empty dataframe
+    gene_length = pd.DataFrame()
+
+    # gene length in kilo base pairs as new column
+    gene_length["gene_length"] = (dataframe[gene_stop] - dataframe[gene_start] + 1) / 1000
+
+    # normalize read counts by gene length in kilo base pairs
+    RPK = dataframe.loc[:, columns].div(gene_length.gene_length, axis=0)
+
+    # creating a series with the sums of each FM40 column / 1,000,000
+    norm_sum = RPK.sum(axis=0) / 1000000
+    norm_sum1 = pd.Series.to_frame(norm_sum)
+    norm_sum2 = norm_sum1.T
+
+    # dividing by the the total transcript counts in each repicate
+    TPM = RPK.div(norm_sum2.ix[0])
+
+    dataframe.loc[:, columns] = TPM
+
+    return dataframe
+
