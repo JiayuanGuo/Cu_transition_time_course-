@@ -100,3 +100,64 @@ def TPM_counts(dataframe,
 
     return dataframe
 
+
+def congruency_table(df,
+                     data_clm_strt,
+                     data_clm_stop,
+                     step=len(df.columns),
+                     mask_diagonal=False):
+    """
+
+    corr(df, data_clm_strt, data_clm_stop, step = len(df.columns), mask_diagonal=False)
+
+    returns a new datafram - congruency table - a pairwise pearson correlation matrix for every row pair
+
+    Parameters
+    ----------
+
+    df - dataframe argument - recommended to use TPM counts for RNAseq datasets.
+    data_clm_strt = first column that contains data to be processed
+    data_clm_stop = last column that contains data to be processed
+    step = length of dataset
+    mask_diagonal = mask diagonal values which shoud come out as 1
+
+
+    Run the following lines to execute the function for my data
+
+    congruency_table(df1, "5GB1_FM40_T0m_TR2" , "5GB1_FM40_T180m_TR1")
+
+    """
+
+    df = df.loc[:, data_clm_strt: data_clm_stop]  # isolating the rows that are relavent to us.
+    df = df.T
+
+    n = df.shape[0]
+
+    def corr_closure(df):
+        d = df.values
+        sums = d.sum(0, keepdims=True)
+        stds = d.std(0, keepdims=True)
+
+        def corr_(k=0, l=10):
+            d2 = d.T.dot(d[:, k:l])
+            sums2 = sums.T.dot(sums[:, k:l])
+            stds2 = stds.T.dot(stds[:, k:l])
+
+            return pd.DataFrame((d2 - sums2 / n) / stds2 / n,
+                                df.columns, df.columns[k:l])
+
+        return corr_
+
+    c = corr_closure(df)
+
+    step = min(step, df.shape[1])
+
+    tups = zip(range(0, n, step), range(step, n + step, step))
+
+    corr_table = pd.concat([c(*t) for t in tups], axis=1)
+
+    if mask_diagonal:
+        np.fill_diagonal(corr_table.values, np.nan)
+
+    return corr_table
+
