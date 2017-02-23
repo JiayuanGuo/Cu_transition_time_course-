@@ -57,12 +57,22 @@ def TPM_counts(dataframe,
     """
     TPM_counts(dataframe, gene_start, gene_stop, columns):
 
+    returns a dataframe with TPM instead of reads
+
     Parameters
     ----------
     daraframe = dataframe object variable
     gene_start = string with column name containing gene start coordinate
     gene_stop = string with column name containing gene stop coordinate
     columns = list of strings of column names to be converted to TPM
+
+
+    Run the following lines to execute the function for my data
+
+    columns = ['5GB1_FM40_T0m_TR2', '5GB1_FM40_T10m_TR3', '5GB1_FM40_T20m_TR2', '5GB1_FM40_T40m_TR1',
+           '5GB1_FM40_T60m_TR1', '5GB1_FM40_T90m_TR2', '5GB1_FM40_T150m_TR1_remake', '5GB1_FM40_T180m_TR1']
+
+    TPM_counts(df,"start_coord","end_coord",columns)
     """
 
     # create empty dataframe
@@ -83,6 +93,10 @@ def TPM_counts(dataframe,
     TPM = RPK.div(norm_sum2.ix[0])
 
     dataframe.loc[:, columns] = TPM
+
+    print("TPM transform complete")
+
+    dataframe.to_csv("TPM_counts.csv")
 
     return dataframe
 
