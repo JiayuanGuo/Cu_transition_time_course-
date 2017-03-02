@@ -1,6 +1,7 @@
 
 import os.path
 import pandas as pd
+import numpy as np
 
 import re #regular expression matching for removing unwanted columns by name
 import natsort as ns #3rd party package for natural sorting
@@ -99,6 +100,41 @@ def TPM_counts(dataframe,
     #dataframe.to_csv("TPM_counts.csv") #in case a csv is needed of just the TPM
 
     return dataframe
+
+
+def log_2_transform(dataframe,
+                    first_data_column,
+                    last_data_column):
+    """
+    log_2_transform(dataframe,
+                    first_data_column,
+                    last_data_column)
+
+    Return a new dataframe with the range of data columns log2 transformed.
+    *all zero values are changed to 1 (yield 0 after transform)
+    *all values less than 1 are changed to 1 (yield 0 after transform)
+
+    Parameters
+    ----------
+    daraframe = dataframe object variable
+    first_data_column = first column that contains actual data (first non categorical)
+    last_data_column = last column taht contains actual data (last non categorigal column)
+
+    Run the following to execute the function for Cu transition dataset.
+
+    log_2_transform(df, "5GB1_FM40_T0m_TR2", "5GB1_FM40_T180m_TR1")
+
+    """
+
+    df_data = dataframe.loc[:, first_data_column:last_data_column]  # isolate the data
+
+    df_data = df_data.replace(0, 1)  # replace all zeros with 1s
+
+    df_data[df_data < 1] = 1  # replace all values less than 1 with 1
+
+    df_data_log2 = df_data.apply(np.log2)
+
+    return df_data_log2
 
 
 def congruency_table(df,
