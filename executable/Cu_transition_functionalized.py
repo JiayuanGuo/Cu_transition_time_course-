@@ -10,6 +10,170 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.metrics.pairwise import euclidean_distances
 
 
+def raw_data_cleanup_v1(filename):
+    """
+    Imports RNAseq .tsv file and does basic clean up"
+        -enter filename with extension as str, file should be in subdirectory raw_data
+        -Several columns are empty, and several transcriptomics datasets are not appropriate for this analysis.
+        -sorts the data columns naturally
+        -returns dataframe with locus tag set as index
+    """
+    # identifying path to raw_data directory and checking for data file
+
+    PATH = "./raw_data/" + str(filename)
+
+    if os.path.isfile(PATH):
+        print("{} was located in the raw_data directory".format(filename))
+
+        # import the data
+        df0_raw = pd.read_csv(PATH, sep="\t")
+        print("{} was imported into dataframe".format(filename))
+
+        # identified columns to be removed. Dropping these columns and reorganizing the dataframe
+        to_remove = ["5GB1_ferm_WT_QC", "5GB1_ferm_Ack_QC", "5GB1C_latelog_vial_TR2_QC",
+                     "5GB1_FM58_Td20h_TR1_QC", "5GB1_FM58_Td32h_TR3_QC", "5GB1_LTrecycle_TR1_QC", "5GB1_LTrecycle_TR1",
+                     "5GB1_vial_wLa_TR3", "5GB1_vial_woLa_TR2"]
+
+        # manually removing some unwanted columns
+        df1_raw_filtered = df0_raw.drop(df0_raw.loc[:, to_remove].columns, axis=1)
+        # Isolating FM34: Cu transition 3+ hours to be reinserted later
+        df1a_FM34_only = df1_raw_filtered.select(lambda x: re.search("FM34", x), axis=1)
+        # Removing all QC runs
+        df1_raw_filtered = df1_raw_filtered.select(lambda x: not re.search("QC", x), axis=1)
+
+        # naturally sorting the filtered columns
+        to_sort = df1_raw_filtered.loc[:, "5GB1_FM69_t2_TR1":]
+
+        cols = list(ns.natsorted(to_sort.columns))
+        cols_sorted = to_sort[cols]
+
+        # adding descriptive columns
+        qualitative = df1_raw_filtered.loc[:, "locus_tag":"translation"]
+        df1b_filtered_sorted = pd.concat([qualitative, cols_sorted], axis=1)
+
+        # isolating FM40 (to be added back later for particular order )
+        df1b_FM40_only = df1b_filtered_sorted.select(lambda x: re.search("FM40", x), axis=1)
+
+        # removing FM40 (to be added right back at the end)
+        df1b_filtered_sorted = df1b_filtered_sorted.select(lambda x: not re.search("FM40", x), axis=1)
+
+        # Adding FM40
+        cleaned_up = pd.concat([df1b_filtered_sorted, df1b_FM40_only], axis=1)
+
+        # adding FM34
+        df2_cleaned_up = pd.concat([cleaned_up, df1a_FM34_only], axis=1)
+
+        # setting locus tag as index
+        df2_cleaned_up = df2_cleaned_up.set_index("locus_tag")
+
+        # new column names in the same order as df2_cleaned_up (except for FM23)
+        df_new_columns = pd.DataFrame({"New_columns":
+                                           ['FM12_CH4-lim_3.0/day',
+                                            'FM12_CH4-lim_3.0/day_R1',
+                                            'FM14_CH4-lim_3.0/day',
+                                            'FM14_CH4-lim_3.0/day_R1',
+                                            'FM18_CH3OH_4.1/day',
+                                            'FM18_CH3OH_4.1/day_R1',
+                                            'FM19_O2-lim_3.5.day',
+                                            'FM19_O2-lim_3.5.day_R1',
+                                            'FM19_O2-lim_3.5.day_R2',
+                                            'FM20_no-lim_5.2/day',
+                                            'FM20_no-lim_5.2/day_R1',
+                                            'FM21_no-lim_5.4/day',
+                                            'FM21_no-lim_5.4/day_R1',
+                                            'FM21_no-lim_5.4/day_R2',
+                                            'FM22_O2-lim_4.2/day',
+                                            'FM22_O2-lim_4.2/day_R1',
+                                            'FM22_O2-lim_4.2/day_R2',
+                                            '5GB1_FM23_TR3',
+                                            'FM69_O2-lim+_0.7/day_t2',
+                                            'FM69_?-lim_0.7/day_t3',
+                                            'FM69_?-lim_0.7/day_t3_R1',
+                                            'FM69_?-lim_0.7/day_t4',
+                                            'FM69_?-lim_0.7/day_t4_R2',
+                                            'FM80_O2-lim_0.7/day_t2',
+                                            'FM80_O2-lim_0.7/day_t4',
+                                            'FM81_O2-lim+_0.7/day_t1',
+                                            'FM81_O2-lim_0.7/day_t2',
+                                            'FM40_-Cu_2.9/day_t0m',
+                                            'FM40_+Cu_2.9/day_t10m',
+                                            'FM40_+Cu_2.9/day_t20m',
+                                            'FM40_+Cu_2.9/day_t40m',
+                                            'FM40_+Cu_2.9/day_t60m',
+                                            'FM40_+Cu_2.9/day_t90m',
+                                            'FM40_+Cu_2.9/day_t150m',
+                                            'FM40_+Cu_2.9/day_t180m',
+                                            'FM34_-Cu_2.7/day_t0',
+                                            'FM34_+Cu_2.7/day_t180m',
+                                            'FM34_+Cu_2.7/day_t240m',
+                                            'FM34_+Cu_2.7/day_t300m',
+                                            'FM34_+Cu_2.7/day_t360m',
+                                            'FM34_+Cu_2.7/day_t420m',
+                                            'FM34_+Cu_2.7/day_t480m']})
+
+        # resetting the column names to be more descriptive
+        df2_cleaned_up.columns = list(df2_cleaned_up.iloc[:, :8].columns) + list(df_new_columns.New_columns)
+
+        columns_ordered = ['product',
+                           'type',
+                           'gene_symbol',
+                           'locus',
+                           'start_coord',
+                           'end_coord',
+                           'note',
+                           'translation',
+                           '5GB1_FM23_TR3',
+                           'FM18_CH3OH_4.1/day',
+                           'FM18_CH3OH_4.1/day_R1',
+                           'FM20_no-lim_5.2/day',
+                           'FM20_no-lim_5.2/day_R1',
+                           'FM21_no-lim_5.4/day',
+                           'FM21_no-lim_5.4/day_R1',
+                           'FM21_no-lim_5.4/day_R2',
+                           'FM12_CH4-lim_3.0/day',
+                           'FM12_CH4-lim_3.0/day_R1',
+                           'FM14_CH4-lim_3.0/day',
+                           'FM14_CH4-lim_3.0/day_R1',
+                           'FM19_O2-lim_3.5.day',
+                           'FM19_O2-lim_3.5.day_R1',
+                           'FM19_O2-lim_3.5.day_R2',
+                           'FM22_O2-lim_4.2/day',
+                           'FM22_O2-lim_4.2/day_R1',
+                           'FM22_O2-lim_4.2/day_R2',
+                           'FM34_-Cu_2.7/day_t0',
+                           'FM40_-Cu_2.9/day_t0m',
+                           'FM40_+Cu_2.9/day_t10m',
+                           'FM40_+Cu_2.9/day_t20m',
+                           'FM40_+Cu_2.9/day_t40m',
+                           'FM40_+Cu_2.9/day_t60m',
+                           'FM40_+Cu_2.9/day_t90m',
+                           'FM40_+Cu_2.9/day_t150m',
+                           'FM40_+Cu_2.9/day_t180m',
+                           'FM34_+Cu_2.7/day_t180m',
+                           'FM34_+Cu_2.7/day_t240m',
+                           'FM34_+Cu_2.7/day_t300m',
+                           'FM34_+Cu_2.7/day_t360m',
+                           'FM34_+Cu_2.7/day_t420m',
+                           'FM34_+Cu_2.7/day_t480m',
+                           'FM69_O2-lim+_0.7/day_t2',
+                           'FM69_?-lim_0.7/day_t3',
+                           'FM69_?-lim_0.7/day_t3_R1',
+                           'FM69_?-lim_0.7/day_t4',
+                           'FM69_?-lim_0.7/day_t4_R2',
+                           'FM80_O2-lim_0.7/day_t2',
+                           'FM80_O2-lim_0.7/day_t4',
+                           'FM81_O2-lim+_0.7/day_t1',
+                           'FM81_O2-lim_0.7/day_t2']
+
+        df2_cleaned_up = df2_cleaned_up[columns_ordered]
+
+        return df2_cleaned_up
+
+    else:
+        print("{} does not exist in raw_data directory. Function was not complete.".format(filename))
+        return
+
+
 def raw_data_cleanup(filename):
     """
     Imports RNAseq .csv file and does basic clean up of "FM40"
